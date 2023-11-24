@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:task_scheduler/dataFetcher/data_fetcher.dart';
+import 'package:task_scheduler/models/task.dart';
 
 void main() {
   runApp(const MyApp());
@@ -50,12 +52,14 @@ class MyHomePage extends StatefulWidget {
 
   final String title;
 
+
   @override
   State<MyHomePage> createState() => _MyHomePageState();
 }
 
 class _MyHomePageState extends State<MyHomePage> {
   int _counter = 0;
+  Future<List<Task>>? _tasks;
 
   void _incrementCounter() {
     setState(() {
@@ -66,6 +70,14 @@ class _MyHomePageState extends State<MyHomePage> {
       // called again, and so nothing would appear to happen.
       _counter++;
     });
+  }
+
+  @override
+  void initState() {
+    // TODO: implement initState
+    super.initState();
+    _tasks = DataFetcher().fetchTasks();
+
   }
 
   @override
@@ -86,40 +98,46 @@ class _MyHomePageState extends State<MyHomePage> {
         // the App.build method, and use it to set our appbar title.
         title: Text(widget.title),
       ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
-        child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          //
-          // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
-          // action in the IDE, or press "p" in the console), to see the
-          // wireframe for each widget.
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            const Text(
-              'You have pushed the button this many times:',
-            ),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
-            ),
-          ],
-        ),
+      body:  FutureBuilder<List<Task>>(
+        future: _tasks,
+        builder: (context, snapshot) {
+          if (snapshot.hasData) {
+            final tasks = snapshot.data!;
+            return ReorderableListView.builder(
+              itemCount: tasks.length,
+              itemBuilder: (context, index) {
+                final task = tasks[index];
+                return ListTile(
+                  key: Key(task.uuid),
+                  title: Text(task.name),
+                  subtitle: Text(task.description),
+                  trailing: Checkbox(
+                    value: task.isCompleted,
+                    onChanged: (value) {
+                      setState(() {
+                        task.isCompleted = value!;
+                      });
+                    },
+                  ),
+                );
+              },
+              onReorder: (oldIndex, newIndex) {
+                setState(() {
+                  if (oldIndex < newIndex) {
+                    newIndex -= 1;
+                  }
+                  final task = tasks.removeAt(oldIndex);
+                  tasks.insert(newIndex, task);
+                });
+              },
+            );
+          } else if (snapshot.hasError) {
+            return Text('Error: ${snapshot.error}');
+          } else {
+            return const Center(child: CircularProgressIndicator());
+          }
+        },
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
-      ), // This trailing comma makes auto-formatting nicer for build methods.
     );
   }
 }
